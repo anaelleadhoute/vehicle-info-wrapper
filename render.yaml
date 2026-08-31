@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: vehicle-info-wrapper
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: UPSTREAM_BASE_URL
+        value: https://insurance-webhook-945894769129.us-central1.run.app
+      - key: UPSTREAM_TIMEOUT_SECONDS
+        value: "5"
+      - key: UPSTREAM_MAX_RETRIES
+        value: "2"
