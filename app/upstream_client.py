@@ -54,17 +54,25 @@ async def fetch_vehicle_info(license_plate: str) -> UpstreamResult:
             return UpstreamResult(outcome="ok", data=payload.get("data"))
 
         if response.status_code == 400:
-            payload = _safe_json(response)
+            logger.info(
+                "Upstream rejected plate=%s as invalid format: %s",
+                license_plate,
+                _extract_upstream_error(response),
+            )
             return UpstreamResult(
                 outcome="invalid_format",
-                detail=payload.get("error", "Invalid license plate format."),
+                detail=f"License plate '{license_plate}' is not a valid format.",
             )
 
         if response.status_code == 404:
-            payload = _safe_json(response)
+            logger.info(
+                "Upstream reports plate=%s not found: %s",
+                license_plate,
+                _extract_upstream_error(response),
+            )
             return UpstreamResult(
                 outcome="not_found",
-                detail=payload.get("error", "Vehicle not found."),
+                detail=f"No vehicle found for license plate '{license_plate}'.",
             )
 
         # 5xx or anything unexpected: treat as transient, retry.
@@ -79,8 +87,22 @@ async def fetch_vehicle_info(license_plate: str) -> UpstreamResult:
     return UpstreamResult(outcome="upstream_error", detail=last_error or "Upstream call failed.")
 
 
-def _safe_json(response: httpx.Response) -> dict:
+def _extract_upstream_error(response: httpx.Response) -> str:
+    """Pull the (Hebrew) error message out of upstream's response, for logging.
+
+    FastAPI's default HTTPException wraps whatever was raised under a
+    top-level "detail" key, so a 400/404 body looks like:
+      {"detail": {"success": false, "error": "..."}}
+    not the flat {"success": false, "error": "..."} shape the OpenAPI spec's
+    schema names implied. We don't surface this message to callers (see
+    below) but it's useful in logs for debugging / verifying upstream
+    behavior.
+    """
     try:
-        return response.json()
+        payload = response.json()
     except ValueError:
-        return {}
+        return ""
+    detail = payload.get("detail", payload)
+    if isinstance(detail, dict):
+        return detail.get("error", "")
+    return str(detail)
