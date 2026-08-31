@@ -6,6 +6,8 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
       - key: UPSTREAM_BASE_URL
         value: https://insurance-webhook-945894769129.us-central1.run.app
       - key: UPSTREAM_TIMEOUT_SECONDS
