@@ -6,7 +6,6 @@ Wraps the upstream "Insurance Company Stub API" with:
     of HTTP codes / error shapes), which is much easier for a no-code
     conversation-flow builder to branch on
   - resilience: request timeout + limited retries on transient failures
-  - a short-lived cache to avoid repeat calls for the same plate
   - structured logging
 """
 import logging
@@ -15,7 +14,6 @@ import re
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from app import cache
 from app.schemas import VehicleData, VehicleLookupRequest, VehicleLookupResponse
 from app.translate import translate_color, translate_manufacturer, translate_model
 from app.upstream_client import fetch_vehicle_info
@@ -41,9 +39,7 @@ def _translate_vehicle_data(data: dict) -> dict:
 
     The upstream API returns these fields in Hebrew; this normalizes them
     to English so the conversation flow can present them to the user
-    (and so flow logic doesn't need to handle Hebrew text). Cached
-    alongside the rest of the vehicle data so the translation only
-    happens once per plate.
+    (and so flow logic doesn't need to handle Hebrew text).
     """
     return {
         **data,
@@ -73,24 +69,11 @@ async def vehicle_info(payload: VehicleLookupRequest) -> JSONResponse:
         )
         return JSONResponse(status_code=200, content=body.model_dump())
 
-    # 2. Check cache.
-    cached = cache.get(plate)
-    if cached is not None:
-        logger.info("Cache hit for plate=%s", plate)
-        body = VehicleLookupResponse(
-            status="ok",
-            vehicle=VehicleData(**cached),
-            message="Vehicle found.",
-            cached=True,
-        )
-        return JSONResponse(status_code=200, content=body.model_dump())
-
-    # 3. Call upstream with timeout + retry, already classified.
+    # 2. Call upstream with timeout + retry, already classified.
     result = await fetch_vehicle_info(plate)
 
     if result.outcome == "ok":
         translated = _translate_vehicle_data(result.data)
-        cache.set(plate, translated)
         body = VehicleLookupResponse(
             status="ok",
             vehicle=VehicleData(**translated),

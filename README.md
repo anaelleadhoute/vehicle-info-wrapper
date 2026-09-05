@@ -18,8 +18,6 @@ from the Insait/Encore Conversation Flow Agent in Part B.
   first, saving a wasted upstream call for input that's already invalid.
 - **Resilience.** Requests to upstream have a timeout and are retried on
   transient failures (timeouts / 5xx) — not on business failures (400/404).
-- **Caching.** Repeated lookups of the same plate within 60s are served
-  from an in-memory cache instead of re-hitting upstream.
 - **A stable contract.** If the upstream API's shape ever changes, only
   this service needs updating — the flow in Part B keeps working against
   the same contract.
@@ -50,8 +48,7 @@ Response (always `200` unless it's a genuine upstream failure):
     "year": 2020,
     "color": "White"
   },
-  "message": "Vehicle found.",
-  "cached": false
+  "message": "Vehicle found."
 }
 ```
 

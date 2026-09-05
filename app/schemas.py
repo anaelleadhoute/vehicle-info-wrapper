@@ -36,6 +36,3 @@ class VehicleLookupResponse(BaseModel):
     status: LookupStatus
     vehicle: Optional[VehicleData] = None
     message: str
-    cached: bool = Field(
-        default=False, description="True if this result was served from cache."
-    )
